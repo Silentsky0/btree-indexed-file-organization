@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @AllArgsConstructor
-public class Index {
+public class Index implements Comparable<Index> {
 
     @Getter
     @Setter
@@ -21,6 +21,11 @@ public class Index {
                 "key=" + key +
                 ", dataPointer=" + dataPointer +
                 '}';
+    }
+
+    @Override
+    public int compareTo(Index index) {
+        return key.compareTo(index.key);
     }
 
 //    @Override

@@ -2,29 +2,34 @@ package dev.silentsky.disk;
 
 import dev.silentsky.btree.BTree;
 import dev.silentsky.btree.Page;
+import dev.silentsky.btree.Record;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.util.Optional;
+import java.util.Vector;
 
 
 @Getter
 @Setter
 public class File {
     String path;
+    String dataPath;
 
-    Page currentPage;
     public static BTree tree;
 
     static int pageIndex = -1;
     static int recordIndex = -1;
 
     private static RandomAccessFile indexFile;
+    private static RandomAccessFile dataFile;
 
-    public File(int order, String path, boolean initNewFile) {
+    private static Vector<Page> pageBuffer;
+
+    public File(int order, String path, String dataPath, boolean initNewFile, int pageIndexLimit) {
         java.io.File treeFile = new java.io.File(path);
         this.path = path;
 
@@ -37,12 +42,33 @@ public class File {
             throw new RuntimeException(e);
         }
 
+        java.io.File data = new java.io.File(dataPath);
+        this.dataPath = dataPath;
+        try {
+            dataFile = new RandomAccessFile(data, "rw");
+            if (initNewFile) {
+                dataFile.setLength(0);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        Record.limit = pageIndexLimit;
+
+        pageBuffer = new Vector<>();
+        pageBuffer.setSize(1);
+
         tree = new BTree(order);
         File.writePage(tree.getRoot(), tree.getRoot().index);
         File.writeMetadata();
     }
 
     public static void writePage(Page page, int index) {
+
+        if (page.pageDepth >= pageBuffer.size()) {
+            pageBuffer.setSize(page.pageDepth + 1);
+        }
+        pageBuffer.set(page.pageDepth, page);
 
         int address = index * tree.getPageSize() + BTree.getMetadataSize();
 
@@ -76,6 +102,12 @@ public class File {
 
     public static Page readPage(int index) {
 
+        Optional<Page> bufferedPage = pageBuffer.stream().filter(page -> page.index == index).findAny();
+        if (bufferedPage.isPresent()) {
+            tree.setCurrentPage(bufferedPage.get());
+            return bufferedPage.get();
+        }
+
         int address = index * tree.getPageSize() + BTree.getMetadataSize();
 
         byte[] pageBytes = new byte[tree.getPageSize()];
@@ -104,6 +136,12 @@ public class File {
             page.keys[i].dataPointer = buffer.getInt();
             page.pagePointers[i + 1] = buffer.getInt();
         }
+
+        if (page.pageDepth >= pageBuffer.size()) {
+            pageBuffer.setSize(page.pageDepth + 1);
+        }
+        pageBuffer.set(page.pageDepth, page);
+
 
         tree.setCurrentPage(page);
 
@@ -145,6 +183,44 @@ public class File {
 
         Page readRoot = readPage(buffer.getInt());
         tree.setRoot(readRoot);
+    }
+
+    public static int writeRecord(Page page, Record record) {
+        int recordIndex = getNextRecordIndex();
+
+        byte[] recordBytes = record.toByteArray();
+
+        try {
+            dataFile.seek((long) recordIndex * BTree.getRecordBlockSize());
+            dataFile.write(recordBytes);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return recordIndex;
+    }
+
+    public static void writeRecord(Record record, int recordIndex) {
+        byte[] recordBytes = record.toByteArray();
+
+        try {
+            dataFile.seek((long) recordIndex * BTree.getRecordBlockSize());
+            dataFile.write(recordBytes);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Record readRecord(int recordIndex) {
+        byte[] recordBytes = new byte[BTree.getRecordBlockSize()];
+        try {
+            dataFile.seek(recordIndex);
+            dataFile.read(recordBytes);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return new Record(recordBytes);
     }
 
     public static int getNextPageIndex() {

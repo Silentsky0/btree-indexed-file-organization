@@ -3,7 +3,6 @@ package dev.silentsky.btree;
 import dev.silentsky.disk.File;
 import dev.silentsky.disk.Index;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 public class Page {
@@ -63,7 +62,7 @@ public class Page {
         keys[index].key = record.id;
         pagePointers[index + 1] = -1;
 
-        // TODO fileAddRecord - save record to data file
+        keys[index].dataPointer = File.writeRecord(this, record);
 
         numberOfElements += 1;
     }
@@ -76,6 +75,32 @@ public class Page {
         keys[index] = ind;
         pagePointers[index + 1] = -1;
         numberOfElements += 1;
+    }
+
+    public void updateRecord(Record record, int recordIndex) {
+        File.writeRecord(record, recordIndex);
+    }
+
+    void insertAndSort(Index ind) {
+        keys[numberOfElements] = ind;
+        numberOfElements += 1;
+        Arrays.sort(keys, 0, numberOfElements);
+        File.writePage(this, this.index);
+    }
+
+    void deleteKey(int keyIndex) {
+        if (keyIndex == numberOfElements - 1) {
+            numberOfElements -= 1;
+            File.writePage(this, this.index);
+            return;
+        }
+
+        for (int i = keyIndex + 1; i < numberOfElements; i++) {
+            keys[i - 1] = keys[i];
+        }
+        numberOfElements -= 1;
+
+        File.writePage(this, this.index);
     }
 
     /**
@@ -95,6 +120,35 @@ public class Page {
         return pivot;
     }
 
+    public int findChild(int pageIndex) {
+        for (int i = 0; i <= numberOfElements; i++) {
+            Page child = File.readPage(pagePointers[i]);
+            if (child.index == pageIndex) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public void insert(Record record) {
+        if (isLeaf()) {
+            Index newIndex = new Index(record.id, File.getNextRecordIndex());
+            if (numberOfElements == File.tree.order) {
+//                if (!compensate(newIndex)) {
+//                    split(newIndex);
+//                }
+            }
+            else {
+                insertAndSort(newIndex);
+            }
+        }
+        else {
+            int assumedDestinationIndex = File.tree.searchPage(this, record.id);
+            Page child = File.readPage(assumedDestinationIndex);
+            child.insert(record);
+        }
+    }
+
     public boolean isLeaf() {
         for(Integer p : pagePointers) if (p != -1) return false;
         return true;
@@ -102,9 +156,9 @@ public class Page {
 
     public void print() {
         if (parentPagePointer == -1) {
-            System.out.println("- root page index " + index + " num of elements " + numberOfElements + " -");
+            System.out.println("- root page index " + index + " num of elements " + numberOfElements + " depth " + pageDepth + " -");
         }else {
-            System.out.println("- page index " + index + " num of elements " + numberOfElements + " parent " + parentPagePointer + " -");
+            System.out.println("- page index " + index + " num of elements " + numberOfElements + " parent " + parentPagePointer + " depth " + pageDepth + " -");
         }
         for (int i = 0; i < numberOfElements; i++) {
             System.out.print(keys[i].key + " ");
