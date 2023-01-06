@@ -40,9 +40,14 @@ public class BTree {
      * @return index of element on page
      */
     int searchPage(Page page, int key) {
+        // zero out any leftover indices that could screw with searching
+//        for (int i = page.numberOfElements; i < 2 * File.tree.order; i++) {
+//            page.keys[i].key = -1;
+//        }
+
         int elementIndex = page.searchBisection(key, 0, page.numberOfElements - 1);
 
-        if (page.keys[elementIndex].key == key) {
+        if (page.keys[elementIndex].key == key && elementIndex < page.numberOfElements) {
             return -1; // element already exists
         }
 
@@ -126,7 +131,7 @@ public class BTree {
         int neighbourRightIndex = pageChildIndex + 1;
         if (parent.pagePointers[neighbourRightIndex] != -1) {
             Page neighbourRight = File.readPage(parent.pagePointers[neighbourRightIndex]);
-            if (neighbourRight.numberOfElements < 2 * order - 1 && neighbourRight.numberOfElements > order) {
+            if (neighbourRight.numberOfElements + page.numberOfElements < File.tree.order * 4 - 1 && neighbourRight.numberOfElements > order) {
 
                 // perform shift with right neighbour
                 compensateThreePages(page, parent, neighbourRight, pageChildIndex);
@@ -138,7 +143,7 @@ public class BTree {
         int neighbourLeftIndex = pageChildIndex - 1;
         if (neighbourLeftIndex >= 0) {
             Page neighbourLeft = File.readPage(parent.pagePointers[neighbourLeftIndex]);
-            if (neighbourLeft.numberOfElements < 2 * order - 1 && neighbourLeft.numberOfElements > order) {
+            if (neighbourLeft.numberOfElements + page.numberOfElements < File.tree.order * 4 - 1 && neighbourLeft.numberOfElements > order) {
 
                 // perform shift with left neighbour
                 compensateThreePages(neighbourLeft, parent, page, neighbourLeftIndex);
@@ -351,8 +356,27 @@ public class BTree {
             return;
         }
 
-        if (page.isRoot)
-            return; // root can have an underflow
+        if (page.isRoot) {
+            if (page.numberOfElements > 0) {
+                return; // root can have an underflow
+            }
+
+            // delete root, its only child becomes a new root
+            Page child = File.readPage(page.pagePointers[0]);
+            child.parentPagePointer = -1;
+            child.isRoot = true;
+            page.isRoot = false;
+            page.pagePointers[0] = -1;
+            page.numberOfElements = -1; // mark for deletion during reorganization
+            File.tree.root = child;
+
+            child.reduceDepth();
+
+            File.writePage(child, child.index);
+            File.writePage(page, page.index);
+            return;
+        }
+
 
         // merge
         Page parent = File.readPage(page.parentPagePointer);
@@ -360,7 +384,7 @@ public class BTree {
         parent = File.readPage(parent.index);
 
         if (parent.numberOfElements < order) {
-            handleOverflow(parent);
+            handleUnderflow(parent);
         }
 
 
@@ -369,32 +393,83 @@ public class BTree {
     public void merge(Page child, Page parent, int childIndex) {
         Page neighbour = null;
 
-        if (parent.pagePointers[childIndex + 1] != -1) { // right neighbour
+        boolean mergeToChild = true; // in a situation when child is the rightmost element, we should merge to the neighbour instead
+        if (childIndex == parent.numberOfElements) {
+            // take the left neighbour
+            neighbour = File.readPage(parent.pagePointers[childIndex - 1]);
+
+            mergeToChild = false;
+        }
+        else {
             neighbour = File.readPage(parent.pagePointers[childIndex + 1]);
         }
-        else if (childIndex - 1 >= 0){ // left neighbour
-            neighbour = File.readPage(parent.pagePointers[childIndex - 1]);
+
+        if (mergeToChild) {
+            child.keys[order - 1] = parent.keys[childIndex];
+            // remove this key from parent
+            for (int i = childIndex; i < parent.numberOfElements - 1; i++) {
+                parent.keys[i] = parent.keys[i + 1];
+            }
+            for (int i = childIndex + 1; i < parent.numberOfElements; i++) {
+                parent.pagePointers[i] = parent.pagePointers[i + 1];
+            }
+            parent.pagePointers[parent.numberOfElements] = -1;
+            parent.numberOfElements -= 1;
+
+            // move keys from neighbour to child
+            for (int i = 0; i < neighbour.numberOfElements; i++) {
+                child.keys[order + i] = neighbour.keys[i];
+            }
+            for (int i = 0; i <= neighbour.numberOfElements; i++) {
+                child.pagePointers[order + i] = neighbour.pagePointers[i];
+            }
+            child.numberOfElements += neighbour.numberOfElements + 1;
+            neighbour.numberOfElements = -1; // mark for deletion later (during tree reorganization)
+        }
+        else { // merging to neighbour
+            neighbour.keys[order] = parent.keys[childIndex - 1];
+
+            // remove this key from parent
+            for (int i = childIndex; i < parent.numberOfElements - 1; i++) {
+                parent.keys[i] = parent.keys[i + 1];
+            }
+            for (int i = childIndex + 1; i < parent.numberOfElements; i++) {
+                parent.pagePointers[i] = parent.pagePointers[i + 1];
+            }
+            parent.pagePointers[parent.numberOfElements] = -1;
+            parent.numberOfElements -= 1;
+
+            // move keys from child to neighbour
+            for (int i = 0; i < child.numberOfElements; i++) {
+                neighbour.keys[order + i + 1] = child.keys[i];
+            }
+            for (int i = 0; i <= child.numberOfElements; i++) {
+                neighbour.pagePointers[order + i + 1] = child.pagePointers[i];
+            }
+            neighbour.numberOfElements += child.numberOfElements + 1;
+            child.numberOfElements = -1; // mark for deletion later (during tree reorganization)
         }
 
-        assert neighbour != null;
+        File.writePage(parent, parent.index);
+        File.writePage(child, child.index);
+        File.writePage(neighbour, neighbour.index);
 
-        child.numberOfElements += neighbour.numberOfElements + 1;
-
-        child.keys[order - 1] = parent.keys[childIndex];
-        //child.pagePointers[order] = parent.pagePointers[childIndex + 1];
-        // remove this key from parent
-        for (int i = childIndex; i < parent.numberOfElements - 1; i++) {
-            parent.keys[i] = parent.keys[i + 1];
-        }
-
-        for (int i = 0; i < neighbour.numberOfElements; i++) {
-            child.keys[order + i] = neighbour.keys[i];
-            child.pagePointers[order + i] = neighbour.pagePointers[i];
-        }
     }
 
     public void print() {
         root.print();
+    }
+
+    public void checkValidity(){
+        int status = root.checkValidity();
+
+        if (status < 0) {
+            System.out.println("Error in tree!");
+        }
+        else {
+            System.out.println("tree is correct");
+        }
+
     }
 
     public int getPageSize() {

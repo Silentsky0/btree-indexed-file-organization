@@ -95,9 +95,12 @@ public class Page {
             return;
         }
 
-        for (int i = keyIndex + 1; i < numberOfElements; i++) {
-            keys[i - 1] = keys[i];
+        for (int i = keyIndex; i < numberOfElements; i++) {
+            keys[i] = keys[i + 1];
         }
+        // TODO remove record from file
+        keys[numberOfElements - 1].key = -1;
+        keys[numberOfElements - 1].dataPointer = -1;
         numberOfElements -= 1;
 
         File.writePage(this, this.index);
@@ -155,6 +158,7 @@ public class Page {
     }
 
     public void print() {
+        if (numberOfElements == -1) return;
         if (parentPagePointer == -1) {
             System.out.println("- root page index " + index + " num of elements " + numberOfElements + " depth " + pageDepth + " -");
         }else {
@@ -165,10 +169,35 @@ public class Page {
         }
         System.out.println();
 
-        for (Integer pagePointer : pagePointers) {
-            if (pagePointer < 0) break;
-            Page child = File.readPage(pagePointer);
+        for (int i = 0; i <= numberOfElements; i++) {
+            if (pagePointers[i] < 0) break;
+            Page child = File.readPage(pagePointers[i]);
             child.print();
         }
+    }
+
+    public void reduceDepth() {
+        this.pageDepth -= 1;
+
+        for (int i = 0; i <= numberOfElements; i++) {
+            if (pagePointers[i] < 0) break;
+            Page child = File.readPage(pagePointers[i]);
+            child.reduceDepth();
+        }
+    }
+
+    public int checkValidity() {
+        // check if order is correct
+        if (this.numberOfElements > 2 * File.tree.order) {
+            System.out.println("validity error: Node " + this.index + " is overflown!");
+            return -1;
+        }
+        for (int pagePointer : pagePointers) {
+            if (pagePointer < 0) break;
+            Page child = File.readPage(pagePointer);
+            int status = child.checkValidity();
+            if (status < 0) return status;
+        }
+        return 0;
     }
 }
