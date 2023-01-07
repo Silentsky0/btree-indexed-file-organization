@@ -10,23 +10,26 @@ import java.io.IOException;
 
 public class Parser {
 
-    public void handleInstructions(String instructionsFile) throws IOException {
-        BufferedReader input =  new BufferedReader(new FileReader(instructionsFile));
+    public static void handleInstructions(String instructionsFile) {
+        try {
+            BufferedReader input =  new BufferedReader(new FileReader(instructionsFile));
 
-        int treeOrder = Integer.parseInt(input.readLine());
-        int pageIndexLimit = Integer.parseInt(input.readLine());
+            int treeOrder = Integer.parseInt(input.readLine());
+            int keyIndexLimit = Integer.parseInt(input.readLine());
 
-        new File(treeOrder, "tree.file", "data.file", true, pageIndexLimit);
+            new File(treeOrder, "tree.file", "data.file", true, keyIndexLimit);
 
-        while(parse(input.readLine())) {
-            System.out.println();
+            while(parse(input.readLine())) {
+                //System.out.println();
+            }
         }
-
-
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
-    public boolean parse(String instruction) {
-        if (instruction.isEmpty() || instruction.isBlank()) {
-            System.out.println("instruction is empty!");
+    public static boolean parse(String instruction) {
+        if (instruction == null || instruction.isEmpty() || instruction.isBlank()) {
+            System.out.println("line with instruction is empty!");
             return false;
         }
 
@@ -46,13 +49,27 @@ public class Parser {
                     File.tree.delete(Integer.parseInt(instructionTokens[1]));
                 }
                 return true;
-            case "s":
-                break;
+            case "p":
+                File.tree.print();
+                System.out.println();
+                return true;
             case "u":
                 if (!instructionTokens[1].isEmpty()) {
-                    //File.tree.updateRecord();
+                    // File.tree.updateRecord();
+                    // TODO update record - this input needs name, surname, age
                 }
-                break;
+                return true;
+            case "ir":
+                if (!instructionTokens[1].isEmpty()) {
+                    int elementsToGenerate = Integer.parseInt(instructionTokens[1]);
+                    for (int i = 0; i < elementsToGenerate; i++) {
+                        File.tree.insert(new Record());
+                    }
+                }
+                return true;
+            case "end":
+                return false;
+
         }
 
         return false;
