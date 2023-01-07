@@ -25,6 +25,14 @@ public class Record {
         this.data = getRandomData();
     }
 
+    public Record(String identity_series, int identity_number, String name, String surname, int age) {
+        this.id = getRandomID();
+        this.identity = new Identity(identity_series, identity_number);
+        this.data.name = name;
+        this.data.surname = surname;
+        this.data.age = age;
+    }
+
     public static int limit;
     private static int last = 0;
 

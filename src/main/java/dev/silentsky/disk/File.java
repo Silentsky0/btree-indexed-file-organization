@@ -29,6 +29,10 @@ public class File {
 
     private static Vector<Page> pageBuffer;
 
+    private static Vector<Record> recordBuffer;
+    private static int recordBufferBlockIndex = 0;
+    private static final int recordsInBlock = 4;
+
     public File(int order, String path, String dataPath, boolean initNewFile, int pageIndexLimit) {
         java.io.File treeFile = new java.io.File(path);
         this.path = path;
@@ -57,6 +61,12 @@ public class File {
 
         pageBuffer = new Vector<>();
         pageBuffer.setSize(1);
+
+        recordBuffer = new Vector<>();
+        recordBuffer.setSize(4);
+        for (int i = 0; i < recordsInBlock; i++) {
+            recordBuffer.set(0, new Record());
+        }
 
         tree = new BTree(order);
         File.writePage(tree.getRoot(), tree.getRoot().index);
@@ -185,7 +195,11 @@ public class File {
         tree.setRoot(readRoot);
     }
 
-    public static int writeRecord(Page page, Record record) {
+    /*
+     * writeNewRecord
+     *
+     */
+    public static int writeNewRecord(Page page, Record record) {
         int recordIndex = getNextRecordIndex();
 
         byte[] recordBytes = record.toByteArray();
@@ -201,26 +215,57 @@ public class File {
     }
 
     public static void writeRecord(Record record, int recordIndex) {
-        byte[] recordBytes = record.toByteArray();
 
-        try {
-            dataFile.seek((long) recordIndex * BTree.getRecordBlockSize());
-            dataFile.write(recordBytes);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        int blockIndex = recordIndex % recordsInBlock;
+
+        if (recordBufferBlockIndex != blockIndex) { // cache miss, we have to load this block into memory first
+            // write current buffer into memory
+            writeBufferContents();
+
+            // read requested block
+            readBlockIntoBuffer(blockIndex);
         }
+
+        recordBuffer.set(recordIndex, record);
     }
 
     public static Record readRecord(int recordIndex) {
-        byte[] recordBytes = new byte[BTree.getRecordBlockSize()];
-        try {
-            dataFile.seek(recordIndex);
-            dataFile.read(recordBytes);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        int blockIndex = recordIndex % recordsInBlock;
+
+        if (recordBufferBlockIndex != blockIndex) { // cache miss, we have to load this block into memory first
+            readBlockIntoBuffer(blockIndex);
         }
 
-        return new Record(recordBytes);
+        return recordBuffer.get(recordIndex);
+    }
+
+    private static void readBlockIntoBuffer(int blockIndex) {
+        for (int i = 0; i < recordsInBlock; i++) {
+            try {
+                dataFile.seek(blockIndex + (long) i * BTree.getRecordBlockSize());
+                byte[] recordBytes = new byte[BTree.getRecordBlockSize()];
+                dataFile.read(recordBytes);
+
+                recordBuffer.set(i, new Record(recordBytes));
+            }
+            catch (IOException e) {e.printStackTrace(); }
+        }
+        recordBufferBlockIndex = blockIndex;
+    }
+
+    public static void writeBufferContents() {
+        for (int i = 0; i < recordsInBlock; i++) {
+            try {
+                dataFile.seek(recordBufferBlockIndex + (long) i * BTree.getRecordBlockSize());
+
+                if (recordBuffer.get(i) != null) {
+                    byte[] recordBytes = recordBuffer.get(i).toByteArray();
+                    dataFile.write(recordBytes);
+                }
+            }
+            catch (IOException e) {e.printStackTrace(); }
+        }
     }
 
     public static int getNextPageIndex() {

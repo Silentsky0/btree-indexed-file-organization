@@ -261,6 +261,11 @@ public class BTree {
         Page pageToUpdate = File.readPage(pageIndex);
         recordIndex = pageToUpdate.searchBisection(key, 0, pageToUpdate.numberOfElements - 1);
 
+        Record initialRecord = File.readRecord(recordIndex);
+        
+        initialRecord.data = record.data;
+        initialRecord.identity = record.identity;
+
         pageToUpdate.updateRecord(record, recordIndex);
     }
 

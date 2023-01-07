@@ -1,12 +1,14 @@
 package dev.silentsky.input;
 
 
+import dev.silentsky.btree.Page;
 import dev.silentsky.btree.Record;
 import dev.silentsky.disk.File;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Map;
 
 public class Parser {
 
@@ -54,9 +56,33 @@ public class Parser {
                 System.out.println();
                 return true;
             case "u":
-                if (!instructionTokens[1].isEmpty()) {
-                    // File.tree.updateRecord();
+                if (!instructionTokens[1].isEmpty()) { // u <key> <identity> <name> <surname> <age>
+
+                    if (!instructionTokens[2].isEmpty()
+                            && !instructionTokens[3].isEmpty()
+                            && !instructionTokens[4].isEmpty()
+                            && !instructionTokens[5].isEmpty()) {
+
+                        String identity = instructionTokens[2];
+                        Record record = new Record(identity.substring(0, 2),
+                                Integer.parseInt(identity.substring(3, 7)),
+                                instructionTokens[3],
+                                instructionTokens[4],
+                                Integer.parseInt(instructionTokens[5]));
+
+                        File.tree.updateRecord(Integer.parseInt(instructionTokens[1]), record);
+                    }
+                    else {
+                        System.out.println("Update record: insufficient amount of information!");
+                        System.out.println("    correct syntax: u <key> <identity> <name> <surname> <age>");
+                    }
+
+
                     // TODO update record - this input needs name, surname, age
+                }
+                else {
+                    System.out.println("Update record: key wasn't provided!");
+                    System.out.println("    correct syntax: u <key> <identity> <name> <surname> <age>");
                 }
                 return true;
             case "ir":
@@ -68,6 +94,8 @@ public class Parser {
                 }
                 return true;
             case "end":
+                File.writeMetadata();
+                File.writeBufferContents();
                 return false;
 
         }

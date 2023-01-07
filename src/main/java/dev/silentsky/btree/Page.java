@@ -62,7 +62,7 @@ public class Page {
         keys[index].key = record.id;
         pagePointers[index + 1] = -1;
 
-        keys[index].dataPointer = File.writeRecord(this, record);
+        keys[index].dataPointer = File.writeNewRecord(this, record);
 
         numberOfElements += 1;
     }
