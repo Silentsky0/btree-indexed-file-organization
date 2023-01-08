@@ -160,9 +160,9 @@ public class Page {
     public void print() {
         if (numberOfElements == -1) return;
         if (parentPagePointer == -1) {
-            System.out.println("- root page index " + index + " num of elements " + numberOfElements + " depth " + pageDepth + " -");
+            System.out.println("- root index " + index + " -");
         }else {
-            System.out.println("- page index " + index + " num of elements " + numberOfElements + " parent " + parentPagePointer + " depth " + pageDepth + " -");
+            System.out.println("- page index " + index + "  parent " + parentPagePointer + " -");
         }
         for (int i = 0; i < numberOfElements; i++) {
             System.out.print(keys[i].key + " ");

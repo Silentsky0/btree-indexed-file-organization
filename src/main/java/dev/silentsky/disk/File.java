@@ -3,6 +3,7 @@ package dev.silentsky.disk;
 import dev.silentsky.btree.BTree;
 import dev.silentsky.btree.Page;
 import dev.silentsky.btree.Record;
+import dev.silentsky.input.Parser;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -32,6 +33,11 @@ public class File {
     private static Vector<Record> recordBuffer;
     private static int recordBufferBlockIndex = 0;
     private static final int recordsInBlock = 4;
+
+    public static long diskPageWrites = 0;
+    public static long diskPageReads = 0;
+    public static long memPageReads = 0;
+    public static long memPageWrites = 0;
 
     public File(int order, String path, String dataPath, boolean initNewFile, int pageIndexLimit) {
         java.io.File treeFile = new java.io.File(path);
@@ -78,6 +84,17 @@ public class File {
         if (page.pageDepth >= pageBuffer.size()) {
             pageBuffer.setSize(page.pageDepth + 1);
         }
+
+//        Optional<Page> bufferedPage = pageBuffer.stream().filter(p -> {
+//            if (p != null) return p.index == index;
+//            return false;
+//        }).findAny();
+//        if (bufferedPage.isPresent()) {
+//            pageBuffer.set(page.pageDepth, page);
+//            memPageWrites += 1;
+//            return;
+//        }
+
         pageBuffer.set(page.pageDepth, page);
 
         int address = index * tree.getPageSize() + BTree.getMetadataSize();
@@ -105,6 +122,7 @@ public class File {
         try {
             indexFile.seek(address);
             indexFile.write(pageBytes);
+            diskPageWrites += 1;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -112,9 +130,13 @@ public class File {
 
     public static Page readPage(int index) {
 
-        Optional<Page> bufferedPage = pageBuffer.stream().filter(page -> page.index == index).findAny();
+        Optional<Page> bufferedPage = pageBuffer.stream().filter(page -> {
+            if (page != null) return page.index == index;
+            return false;
+        }).findAny();
         if (bufferedPage.isPresent()) {
             tree.setCurrentPage(bufferedPage.get());
+            memPageReads += 1;
             return bufferedPage.get();
         }
 
@@ -126,6 +148,7 @@ public class File {
         try {
             indexFile.seek(address);
             indexFile.read(pageBytes);
+            diskPageReads += 1;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -151,7 +174,6 @@ public class File {
             pageBuffer.setSize(page.pageDepth + 1);
         }
         pageBuffer.set(page.pageDepth, page);
-
 
         tree.setCurrentPage(page);
 
@@ -268,12 +290,44 @@ public class File {
         }
     }
 
+    public static void reorganize() {
+        int index = 0;
+        while (true) {
+            try {
+                int address = index * tree.getPageSize() + BTree.getMetadataSize();
+
+                byte[] pageBytes = new byte[tree.getPageSize()];
+                Page page = new Page(tree.getOrder(), index);
+
+                indexFile.seek(pageIndex);
+
+
+
+
+            }
+            catch (IOException e) { e.printStackTrace(); }
+
+        }
+    }
+
     public static int getNextPageIndex() {
         pageIndex += 1;
 
-        System.out.println("New page of index " + pageIndex);
+        //if (Parser.verbose) System.out.println("New page of index " + pageIndex);
 
         return pageIndex;
+    }
+
+    public static void closeFile() {
+        try {
+            indexFile.close();
+            dataFile.close();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println("-- Program stats: --");
+        System.out.println("Disk operations    mem: " + memPageReads + " disk: " + (diskPageReads + diskPageWrites));
     }
 
     public static int getNextRecordIndex() {

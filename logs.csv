@@ -1,0 +1,2 @@
+Instruction;Number of records;Mem operations;Disk operations;Elapsed time [ms]
+ir;10000;12474;15704;382.295901

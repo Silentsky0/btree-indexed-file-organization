@@ -31,8 +31,8 @@ public class BTree {
         this.height = 1;
         this.root = new Page(order, true, File.getNextPageIndex());
 
-        Record r = new Record(20);
-        root.insertRecord(r, 0);
+        //Record r = new Record(20);
+        //root.insertRecord(r, 0);
     }
 
     /**
@@ -69,7 +69,7 @@ public class BTree {
         return Map.entry(pageIndex, recordIndex);
     }
 
-    public void insert(Record record) {
+    public boolean insert(Record record) {
         int pageIndex, recordIndex;
 
         Map.Entry<Integer, Integer> r = search(record.id);
@@ -77,8 +77,8 @@ public class BTree {
         recordIndex = r.getValue();
 
         if (recordIndex < 0) {
-            System.out.println("Record already exists!");
-            return;
+            System.out.println("insert: Record of key " + record.id + " already exists!");
+            return false;
         }
 
         Page pageToInsert = File.readPage(pageIndex);
@@ -89,7 +89,9 @@ public class BTree {
         if (pageToInsert.numberOfElements > 2 * order)
             handleOverflow(pageToInsert);
 
-        root = File.readPage(root.index);
+        //root = File.readPage(root.index);
+
+        return true;
     }
 
     public void handleOverflow(Page page) {
@@ -262,7 +264,7 @@ public class BTree {
         recordIndex = pageToUpdate.searchBisection(key, 0, pageToUpdate.numberOfElements - 1);
 
         Record initialRecord = File.readRecord(recordIndex);
-        
+
         initialRecord.data = record.data;
         initialRecord.identity = record.identity;
 
@@ -366,10 +368,16 @@ public class BTree {
                 return; // root can have an underflow
             }
 
+            if (page.isLeaf()) { // there is only root
+                File.writePage(page, page.index);
+                return;
+            }
+
             // delete root, its only child becomes a new root
             Page child = File.readPage(page.pagePointers[0]);
             child.parentPagePointer = -1;
             child.isRoot = true;
+            child.pageDepth = 1;
             page.isRoot = false;
             page.pagePointers[0] = -1;
             page.numberOfElements = -1; // mark for deletion during reorganization
