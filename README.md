@@ -6,7 +6,7 @@
 </h1>
 
 <p align="center">
-    <a href="https://github.com/Silentsky0/btree-indexed-file-organization/blob/main/LICENSE">
+    <a href="https://github.com/Silentsky0/btree-indexed-file-organization/blob/dev/LICENSE">
         <img src="https://img.shields.io/github/license/Silentsky0/btree-indexed-file-organization">
     </a>
 </p>
