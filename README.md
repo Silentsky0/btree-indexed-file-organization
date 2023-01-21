@@ -1,8 +1,23 @@
-# B-Tree - Disk-based index file organization 
+<h1 align="center">
+    <img src="./img/btree-logo.png" width="30%" height="30%">
+    </br>
+    B-Tree - Disk-based index file organization 
+    </br>
+</h1>
+
+<p align="center">
+    <a href="https://github.com/Silentsky0/btree-indexed-file-organization/blob/main/LICENSE">
+        <img src="https://img.shields.io/github/license/Silentsky0/btree-indexed-file-organization">
+    </a>
+</p>
+
+<h3 align="center">
+    B-Tree implementation with disk-based file operations.
+</h3>
 
 # Overview
 
-B-Tree implementation with disk-based file operations. The main premise of this
+The main premise of this
 project was to visualize the index file organization used in real database
 systems.
 
@@ -16,7 +31,7 @@ Computer Science on Gdańsk University of Technology.
 
 Disk operations on the index file are performed using pages (to simulate disk
 access on a physical hard disk). Pages are buffered in main program memory
-utilizing a vector. It can contain up to $$h$$ pages, so the whole branch from
+utilizing a vector. It can contain up to $h$ pages, so the whole branch from
 root to leaf.
 
 Disk operations on the data file are also simulated to be page(or block)-based.
@@ -24,7 +39,6 @@ Disk write or read only happen if there were a *cache miss*; only one block of
 records is buffered.
 
 # Table of contents
-- [B-Tree - Disk-based index file organization](#b-tree---disk-based-index-file-organization)
 - [Overview](#overview)
   - [Implementation specs](#implementation-specs)
 - [Table of contents](#table-of-contents)
